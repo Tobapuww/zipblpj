@@ -1,47 +1,66 @@
-name: ZipCracker Workflow
+name: RawOutputCracker
 
 on:
   workflow_dispatch:
     inputs:
       zip_url:
-        description: 'URL of the target ZIP file'
+        description: '需要破解的ZIP文件直链'
         required: true
 
 jobs:
-  crack:
+  process:
     runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
     steps:
-    - name: Install dependencies
+    # 环境初始化
+    - name: 初始化环境
       run: |
-        sudo apt-get update
-        sudo apt-get install -y unrar
+        sudo apt update
+        sudo apt install -y unrar git python3 wget python3-pip
 
-    - name: Clone ZipCracker repository
-      run: git clone https://github.com/asaotomo/ZipCracker.git
+    # 获取核心组件
+    - name: 部署工具链
+      run: |
+        git clone https://github.com/asaotomo/ZipCracker.git
+        cd ZipCracker
+        wget -q https://github.com/Tobapuww/zipblpj/raw/main/dit.rar
 
-    - name: Handle dictionary files
+    # 字典处理流程
+    - name: 准备字典文件
       working-directory: ./ZipCracker
       run: |
-        # 下载并解压字典
-        wget https://github.com/Tobapuww/zipblpj/raw/refs/heads/main/dit.rar
-        unrar e dit.rar
-        rm dit.rar  # 清理临时文件
+        unrar x -y dit.rar
+        cd "28G爆破字典"
+        unrar x -y "28GBwordlist.part0001.rar"
+        mv "acdc's dictionary.txt" ../
 
-    - name: Download target ZIP
-      working-directory: ./ZipCracker
-      run: wget ${{ github.event.inputs.zip_url }} -O target.zip
-
-    - name: Run ZipCracker
+    # 核心执行模块
+    - name: 执行破解任务
       working-directory: ./ZipCracker
       run: |
-        echo "开始破解压缩包..."
-        python3 ZipCracker.py target.zip "acdc's dictionary.txt"
-        echo "破解结果："
-        cat result.txt  # 假设脚本输出结果到result.txt
+        # 下载目标文件
+        wget -O target.zip "${{ inputs.zip_url }}"
+        
+        # 执行并记录完整输出
+        python3 ZipCracker.py target.zip "acdc's dictionary.txt" > complete_output.log 2>&1
 
-    - name: Upload results
+        # 生成时间戳标记
+        echo "任务完成于: $(date +"%Y-%m-%d %H:%M:%S")" >> complete_output.log
+
+        # 转移原始日志到工作区
+        cp complete_output.log $GITHUB_WORKSPACE/
+
+    # 结果处理
+    - name: 打包输出结果
+      run: |
+        cd $GITHUB_WORKSPACE
+        mv complete_output.log crack_${{ github.run_id }}.log
+        gzip crack_${{ github.run_id }}.log
+
+    # 结果发布
+    - name: 发布原始日志
       uses: actions/upload-artifact@v3
       with:
-        name: crack-results
-        path: |
-          ./ZipCracker/result.txt
+        name: raw_output
+        path: ${{ github.workspace }}/crack_${{ github.run_id }}.log.gz
