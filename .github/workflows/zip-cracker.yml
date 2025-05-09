@@ -9,7 +9,7 @@ on:
 
 jobs:
   process:
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, high-cpu, linux, X64]
     timeout-minutes: 360
 
     steps:
