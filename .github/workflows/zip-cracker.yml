@@ -50,10 +50,9 @@ jobs:
     - name: 执行破解任务
       working-directory: /mnt/cracker/ZipCracker
       run: |
-        export PYTHONUNBUFFERED=1
-        export CI=true
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
-        python3 ZipCracker.py "/mnt/cracker/ZipCracker/target.zip" "/mnt/cracker/ZipCracker/acdc's dictionary.txt" > complete_output.log 2>&1
+        python3 -u ZipCracker.py "/mnt/cracker/ZipCracker/target.zip" "/mnt/cracker/ZipCracker/acdc's dictionary.txt" > complete_output.log 2>&1
+        continue-on-error: false
         echo "任务完成时间: $(date +'%Y-%m-%d %H:%M:%S %Z')" >> complete_output.log
         mv complete_output.log $GITHUB_WORKSPACE/
 
