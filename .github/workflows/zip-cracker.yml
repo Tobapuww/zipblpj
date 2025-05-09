@@ -1,4 +1,4 @@
-name: StableZipCracker
+name: DirectZipCracker
 
 on:
   workflow_dispatch:
@@ -10,74 +10,63 @@ on:
 jobs:
   crack:
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 240
 
     steps:
-    - name: 环境预检
+    # 使用大容量分区
+    - name: 创建工作区
       run: |
-        # 检查磁盘空间
-        df -h
-        # 验证内存
-        free -h
-        # 安装必要组件
+        sudo mkdir -p /mnt/workspace
+        sudo chown -R runner:docker /mnt/workspace
+        echo "WORKSPACE=/mnt/workspace" >> $GITHUB_ENV
+
+    # 基础环境配置
+    - name: 安装依赖
+      working-directory: ${{ env.WORKSPACE }}
+      run: |
         sudo apt update
-        sudo apt install -y unrar pv
-
-    - name: 获取资源
-      run: |
+        sudo apt install -y unrar
         git clone https://github.com/asaotomo/ZipCracker.git
-        cd ZipCracker
-        wget --tries=5 --retry-connrefused https://github.com/Tobapuww/zipblpj/raw/main/dit.rar
 
-    - name: 安全解压字典
-      working-directory: ./ZipCracker
+    # 分步解压流程
+    - name: 处理字典文件
+      working-directory: ${{ env.WORKSPACE }}/ZipCracker
       run: |
-        # 创建专用工作区
-        mkdir -p temp_dict
-        unrar x -y dit.rar "28G爆破字典/" -otemp_dict
-        
-        # 分步处理大文件
-        cd temp_dict/"28G爆破字典"
-        for part in 28GBwordlist.part*.rar; do
-            echo "正在处理分卷: $part"
-            unrar x -y "$part" -o- -p-
-        done
-        
-        # 验证文件完整性
-        if [ -f "acdc's dictionary.txt" ]; then
-            mv "acdc's dictionary.txt" ../../
-            cd ../..
-            rm -rf temp_dict dit.rar
-        else
-            echo "::error::字典文件生成失败！"
-            exit 1
-        fi
-
-    - name: 稳定运行破解
-      working-directory: ./ZipCracker
-      run: |
-        # 禁用终端交互
-        export CI=true
-        export PYTHONUNBUFFERED=1
-        
-        # 分块处理大字典
-        split -l 1000000 --additional-suffix=.chunk "acdc's dictionary.txt"
-        
-        # 并行处理
-        for chunk in *.chunk; do
-            echo "正在处理字典分块: $chunk"
-            python3 ZipCracker.py \
-                --no-progress \ 
-                --batch-size 5000 \
-                target.zip "$chunk" >> full_output.log 2>&1
+        # 分阶段下载解压
+        for part in {1..4}; do
+            echo "正在处理分卷 part000${part}"
+            wget "https://github.com/Tobapuww/zipblpj/raw/main/dit.rar/28G爆破字典/28GBwordlist.part000${part}.rar"
+            
+            # 立即解压并删除分卷
+            unrar x -y "28GBwordlist.part000${part}.rar"
+            rm "28GBwordlist.part000${part}.rar"
+            
+            # 空间验证
+            if [ $(df /mnt/workspace --output=avail | tail -n1) -lt 5000000 ]; then
+                echo "::error::磁盘空间不足！"
+                exit 1
+            fi
         done
 
-        # 提取最终结果
-        grep -m1 "Password found:" full_output.log | tee result.txt
-        cp result.txt $GITHUB_WORKSPACE/
+        # 合并最终字典
+        mv "28G爆破字典/acdc's dictionary.txt" ./
+        rm -rf "28G爆破字典"
 
-    - name: 上传结果
+    # 执行核心脚本
+    - name: 运行破解程序
+      working-directory: ${{ env.WORKSPACE }}/ZipCracker
+      run: |
+        wget -O target.zip "${{ github.event.inputs.zip_url }}"
+        python3 ZipCracker.py target.zip "acdc's dictionary.txt" > raw_output.txt
+
+        # 立即清理字典文件
+        rm "acdc's dictionary.txt"
+        rm target.zip
+
+    # 结果处理
+    - name: 保存结果
+      working-directory: ${{ env.WORKSPACE }}/ZipCracker
       uses: actions/upload-artifact@v4
       with:
         name: crack_result
-        path: ${{ github.workspace }}/result.txt
+        path: raw_output.txt
