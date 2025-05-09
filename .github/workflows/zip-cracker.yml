@@ -69,11 +69,11 @@ jobs:
             done
         } | tee -a full_output.log
         sync
-        mv complete_output.log $GITHUB_WORKSPACE/
+        mv full_output.log $GITHUB_WORKSPACE/
 
     # 结果发布（使用新版Action）
     - name: 上传原始日志
       uses: actions/upload-artifact@v4
       with:
         name: raw_logs
-        path: ${{ github.workspace }}/complete_output.log
+        path: ${{ github.workspace }}/full_output.log
