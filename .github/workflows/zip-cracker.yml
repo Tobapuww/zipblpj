@@ -1,71 +1,60 @@
-name: DirectZipCracker
+name: RawOutputCracker
 
 on:
   workflow_dispatch:
     inputs:
       zip_url:
-        description: '目标压缩包直链地址'
+        description: '需要破解的ZIP文件直链'
         required: true
 
 jobs:
-  crack:
+  process:
     runs-on: ubuntu-22.04
-    timeout-minutes: 240
+    timeout-minutes: 120
 
     steps:
-    # 使用大容量分区
     - name: 创建工作区
       run: |
         sudo mkdir -p /mnt/workspace
         sudo chown -R runner:docker /mnt/workspace
         echo "WORKSPACE=/mnt/workspace" >> $GITHUB_ENV
-
-    # 基础环境配置
-    - name: 安装依赖
-      working-directory: ${{ env.WORKSPACE }}
+        
+    # 环境初始化
+    - name: 初始化环境
       run: |
         sudo apt update
-        sudo apt install -y unrar
-        git clone https://github.com/asaotomo/ZipCracker.git
+        sudo apt install -y unrar python3 wget
 
-    # 分步解压流程
-    - name: 处理字典文件
-      working-directory: ${{ env.WORKSPACE }}/ZipCracker
+    # 获取核心组件
+    - name: 部署工具链
       run: |
-        # 分阶段下载解压
-        for part in {1..4}; do
-            echo "正在处理分卷 part000${part}"
-            wget "https://github.com/Tobapuww/zipblpj/raw/main/dit.rar/28G爆破字典/28GBwordlist.part000${part}.rar"
-            
-            # 立即解压并删除分卷
-            unrar x -y "28GBwordlist.part000${part}.rar"
-            rm "28GBwordlist.part000${part}.rar"
-            
-            # 空间验证
-            if [ $(df /mnt/workspace --output=avail | tail -n1) -lt 5000000 ]; then
-                echo "::error::磁盘空间不足！"
-                exit 1
-            fi
-        done
+        git clone https://github.com/asaotomo/ZipCracker.git
+        cd ZipCracker
+        wget -q https://github.com/Tobapuww/zipblpj/raw/main/dit.rar
 
-        # 合并最终字典
-        mv "28G爆破字典/acdc's dictionary.txt" ./
-        rm -rf "28G爆破字典"
+    # 字典处理流程
+    - name: 准备字典文件
+      working-directory: ./ZipCracker
+      run: |
+        unrar x -y dit.rar
+        cd "28G爆破字典"
+        unrar x -y "28GBwordlist.part0001.rar"
+        mv "acdc's dictionary.txt" ../
+        cd ..
+        rm -rf "28G爆破字典" dit.rar
 
-    # 执行核心脚本
-    - name: 运行破解程序
-      working-directory: ${{ env.WORKSPACE }}/ZipCracker
+    # 核心执行模块
+    - name: 执行破解任务
+      working-directory: ./ZipCracker
       run: |
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
-        python3 ZipCracker.py target.zip "acdc's dictionary.txt" > raw_output.txt
+        python3 ZipCracker.py target.zip "acdc's dictionary.txt" > complete_output.log 2>&1
+        echo "任务完成时间: $(date +'%Y-%m-%d %H:%M:%S %Z')" >> complete_output.log
+        mv complete_output.log $GITHUB_WORKSPACE/
 
-        # 立即清理字典文件
-        rm "acdc's dictionary.txt"
-        rm target.zip
-
-    # 结果处理
+    # 结果发布（使用新版Action）
     - name: 上传原始日志
       uses: actions/upload-artifact@v4
       with:
         name: raw_logs
-        path: ${{ github.workspace }}/raw_output.txt
+        path: ${{ github.workspace }}/complete_output.log
