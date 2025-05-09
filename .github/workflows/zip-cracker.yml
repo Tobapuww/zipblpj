@@ -13,20 +13,22 @@ jobs:
     timeout-minutes: 120
 
     steps:
-    - name: 创建工作区
+    - name: 初始化存储
       run: |
-        sudo mkdir -p /mnt/workspace
-        sudo chown -R runner:docker /mnt/workspace
-        echo "WORKSPACE=/mnt/workspace" >> $GITHUB_ENV
+        sudo mkdir -p /mnt/cracker
+        sudo chown -R runner:docker /mnt/cracker
+        echo "主工作区已创建：$(df -h /mnt)"
         
     # 环境初始化
     - name: 初始化环境
+      working-directory: /mnt/cracker
       run: |
         sudo apt update
         sudo apt install -y unrar python3 wget
 
     # 获取核心组件
     - name: 部署工具链
+      working-directory: /mnt/cracker
       run: |
         git clone https://github.com/asaotomo/ZipCracker.git
         cd ZipCracker
@@ -34,7 +36,7 @@ jobs:
 
     # 字典处理流程
     - name: 准备字典文件
-      working-directory: ./ZipCracker
+      working-directory: /mnt/cracker/ZipCracker
       run: |
         unrar x -y dit.rar
         cd "28G爆破字典"
@@ -45,7 +47,7 @@ jobs:
 
     # 核心执行模块
     - name: 执行破解任务
-      working-directory: ./ZipCracker
+      working-directory: /mnt/cracker/ZipCracker
       run: |
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
         python3 ZipCracker.py target.zip "acdc's dictionary.txt" > complete_output.log 2>&1
