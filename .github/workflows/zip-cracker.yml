@@ -1,0 +1,47 @@
+name: ZipCracker Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: 'URL of the target ZIP file'
+        required: true
+
+jobs:
+  crack:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y unrar
+
+    - name: Clone ZipCracker repository
+      run: git clone https://github.com/asaotomo/ZipCracker.git
+
+    - name: Handle dictionary files
+      working-directory: ./ZipCracker
+      run: |
+        # 下载并解压字典
+        wget https://github.com/Tobapuww/zipblpj/raw/refs/heads/main/dit.rar
+        unrar e dit.rar
+        rm dit.rar  # 清理临时文件
+
+    - name: Download target ZIP
+      working-directory: ./ZipCracker
+      run: wget ${{ github.event.inputs.zip_url }} -O target.zip
+
+    - name: Run ZipCracker
+      working-directory: ./ZipCracker
+      run: |
+        echo "开始破解压缩包..."
+        python3 ZipCracker.py target.zip "acdc's dictionary.txt"
+        echo "破解结果："
+        cat result.txt  # 假设脚本输出结果到result.txt
+
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      with:
+        name: crack-results
+        path: |
+          ./ZipCracker/result.txt
