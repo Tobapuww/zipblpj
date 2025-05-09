@@ -64,9 +64,8 @@ jobs:
         rm target.zip
 
     # 结果处理
-    - name: 保存结果
-      working-directory: ${{ env.WORKSPACE }}/ZipCracker
+    - name: 上传原始日志
       uses: actions/upload-artifact@v4
       with:
-        name: crack_result
-        path: raw_output.txt
+        name: raw_logs
+        path: ${{ github.workspace }}/raw_output.txt
