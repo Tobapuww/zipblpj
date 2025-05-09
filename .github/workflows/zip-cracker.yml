@@ -53,7 +53,7 @@ jobs:
         export PYTHONUNBUFFERED=1
         export CI=true
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
-        python3 ZipCracker.py target.zip "acdc's dictionary.txt" > complete_output.log 2>&1
+        python3 ZipCracker.py "/mnt/cracker/ZipCracker/target.zip" "/mnt/cracker/ZipCracker/acdc's dictionary.txt" > complete_output.log 2>&1
         echo "任务完成时间: $(date +'%Y-%m-%d %H:%M:%S %Z')" >> complete_output.log
         mv complete_output.log $GITHUB_WORKSPACE/
 
