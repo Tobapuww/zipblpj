@@ -24,7 +24,8 @@ jobs:
       working-directory: /mnt/cracker
       run: |
         sudo apt update
-        sudo apt install -y unrar python3 wget
+        sudo apt install -y unrar python3 wget python3-pip
+        
 
     # 获取核心组件
     - name: 部署工具链
@@ -49,6 +50,8 @@ jobs:
     - name: 执行破解任务
       working-directory: /mnt/cracker/ZipCracker
       run: |
+        export PYTHONUNBUFFERED=1
+        export CI=true
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
         python3 ZipCracker.py target.zip "acdc's dictionary.txt" > complete_output.log 2>&1
         echo "任务完成时间: $(date +'%Y-%m-%d %H:%M:%S %Z')" >> complete_output.log
