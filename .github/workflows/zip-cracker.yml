@@ -10,7 +10,7 @@ on:
 jobs:
   process:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 360
 
     steps:
     - name: 初始化存储
@@ -49,6 +49,8 @@ jobs:
     # 核心执行模块
     - name: 执行破解任务
       working-directory: /mnt/cracker/ZipCracker
+      env:
+        TERM: xterm
       run: |
         export PYTHONUNBUFFERED=1
         export CI=true
@@ -58,11 +60,11 @@ jobs:
           echo "当前路径: $(pwd)"
           echo "文件列表:"
           ls -lh
-          echo "字典行数: $(wc -l "acdc's dictionary.txt")"
           
           echo "===== 开始执行 ====="
           stdbuf -oL python3 ZipCracker.py target.zip "acdc's dictionary.txt" 2>&1 | 
             while IFS= read -r line; do 
+              echo "$line" | sed $'s/\r/\n/g'
               printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$line";
             done
         } | tee -a full_output.log
