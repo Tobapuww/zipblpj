@@ -54,13 +54,19 @@ jobs:
         export CI=true
         wget -O target.zip "${{ github.event.inputs.zip_url }}"
         {
-          python3 -u ZipCracker.py "/mnt/cracker/ZipCracker/target.zip" "/mnt/cracker/ZipCracker/acdc's dictionary.txt" > complete_output.log 2>&1
+          echo "===== 环境验证 ====="
+          echo "当前路径: $(pwd)"
+          echo "文件列表:"
+          ls -lh
+          echo "字典行数: $(wc -l "acdc's dictionary.txt")"
+          
+          echo "===== 开始执行 ====="
+          stdbuf -oL python3 ZipCracker.py target.zip "acdc's dictionary.txt" 2>&1 | 
             while IFS= read -r line; do 
               printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$line";
-           done
-          echo "[$(date)] 破解进程退出，状态码：$?"
-        } | tee -a crack.log
-        echo "任务完成时间: $(date +'%Y-%m-%d %H:%M:%S %Z')" >> complete_output.log
+            done
+        } | tee -a full_output.log
+        sync
         mv complete_output.log $GITHUB_WORKSPACE/
 
     # 结果发布（使用新版Action）
